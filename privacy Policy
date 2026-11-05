@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MAPOO - मैपू</title>
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    try {
+      const mod = await import("https://esm.sh/@capacitor/geolocation@8.2.4");
+      window.MapooNativeGeolocation = mod.Geolocation;
+      window.MapooGeolocationModuleError = null;
+    } catch (e) {
+      window.MapooGeolocationModuleError = String(e?.message || e);
+      console.error("MAPOO Geolocation module load failed:", e);
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #070a11;
+      --card-bg: rgba(16, 24, 38, 0.88);
+      --accent-emerald: #10b981;
+      --accent-teal: #06b6d4;
+      --glow-emerald: rgba(16, 185, 129, 0.35);
+      --glow-teal: rgba(6, 182, 212, 0.35);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(16, 185, 129, 0.18) 0%, transparent 45%),
+        radial-gradient(circle at 90% 85%, rgba(6, 182, 212, 0.18) 0%, transparent 45%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 12px 70px 12px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card-bg);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid var(--border-color);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8);
+      margin: auto 0;
+    }
+
+    /* MAPOO CUSTOM EMBLEM LOGO */
+    .mapo-logo-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .mapo-svg-icon {
+      width: 46px;
+      height: 46px;
+      filter: drop-shadow(0 0 12px var(--glow-teal));
+    }
+
+    .logo-text {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #2dd4bf, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1.5px;
+    }
+
+    /* GATE MODAL */
+    .gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 10, 17, 0.96);
+      backdrop-filter: blur(18px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .gate-card {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(18, 26, 41, 0.95);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 26px;
+      padding: 26px 22px;
+      text-align: center;
+      box-shadow: 0 0 50px var(--glow-emerald);
+    }
+
+    .app-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .tagline {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* TABS */
+    .tab-bar {
+      display: flex;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 4px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 11px 0;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent-emerald), var(--accent-teal));
+      color: #041812;
+      font-weight: 800;
+      box-shadow: 0 4px 18px var(--glow-emerald);
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.3s ease forwards;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-group {
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-box {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 13px 16px;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .input-box:focus {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent-emerald), var(--accent-teal));
+      color: #041812;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 6px 20px var(--glow-emerald);
+      margin-top: 10px;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--accent-teal);
+      border-radius: 16px;
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--accent-teal);
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .otp-inputs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 15px 0;
+    }
+
+    .otp-field {
+      width: 48px;
+      height: 52px;
+      text-align: center;
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: #fff;
+    }
+
+    .otp-field:focus {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--glow-emerald);
+      outline: none;
+    }
+
+    /* PRIVACY TOGGLE */
+    .privacy-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 14px;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .privacy-info h4 { font-size: 0.9rem; color: var(--text-main); }
+    .privacy-info p { font-size: 0.72rem; color: var(--text-muted); }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.2);
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px; width: 18px;
+      left: 4px; bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: var(--accent-emerald); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+
+    .gps-panel {
+      margin: 14px 0 16px; padding: 16px; border-radius: 18px;
+      background: linear-gradient(145deg, rgba(6,182,212,.13), rgba(16,185,129,.10));
+      border: 1px solid rgba(45,212,191,.28);
+      box-shadow: 0 12px 28px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .gps-panel h3 { margin:0 0 6px; font-size:1rem; color:var(--text-main); }
+    .gps-panel p { margin:0 0 12px; color:var(--text-muted); font-size:.82rem; line-height:1.55; }
+    .gps-actions { display:grid; grid-template-columns:1fr; gap:10px; }
+    .gps-action-btn {
+      width:100%; border:0; border-radius:13px; padding:13px 14px;
+      display:flex; align-items:center; justify-content:center; gap:9px;
+      font-weight:800; cursor:pointer; color:#041311;
+      background:linear-gradient(135deg,#5eead4,#34d399);
+      box-shadow:0 7px 18px rgba(16,185,129,.22);
+    }
+    .gps-action-btn.secondary {
+      color:#eaf6ff; background:linear-gradient(135deg,#2563eb,#0ea5e9);
+      box-shadow:0 7px 18px rgba(37,99,235,.22);
+    }
+    .gps-action-btn:disabled { opacity:.6; cursor:wait; }
+    #gpsPreview { display:none; margin-top:12px; padding:11px; border-radius:12px;
+      background:rgba(0,0,0,.22); color:var(--text-main); font-size:.78rem; line-height:1.6; overflow-wrap:anywhere; }
+    #gpsPreview a { color:#7dd3fc; font-weight:700; }
+    .settings-menu {
+      background:linear-gradient(155deg,rgba(20,31,48,.98),rgba(8,15,27,.98));
+      border:1px solid rgba(94,234,212,.28); border-radius:20px;
+      box-shadow:0 18px 48px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.07);
+      backdrop-filter:blur(18px); padding:16px;
+    }
+    .settings-menu .privacy-card { padding:14px; border-radius:15px; background:rgba(255,255,255,.055); }
+    .settings-menu .btn-danger { border-radius:13px; }
+
+    /* RESULTS CARD */
+    .result-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 18px;
+      margin-top: 16px;
+      text-align: center;
+      display: none;
+    }
+
+    .result-card.active { display: block; }
+
+    .user-avatar {
+      width: 55px; height: 55px;
+      background: linear-gradient(135deg, var(--accent-teal), var(--accent-emerald));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; color: #000;
+      margin: 0 auto 10px; font-weight: 800;
+    }
+
+    .maps-btn {
+      width: 100%;
+      padding: 13px;
+      background: #4285F4;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 12px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; text-decoration: none;
+      box-shadow: 0 4px 15px rgba(66, 133, 244, 0.35);
+    }
+
+    /* REWARDED AD MODAL */
+    .ad-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.94);
+      backdrop-filter: blur(12px);
+      z-index: 2000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .ad-modal.active { display: flex; }
+
+    .ad-card {
+      width: 100%;
+      max-width: 340px;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .ad-timer-badge {
+      display: inline-block;
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid #ef4444;
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+
+    .btn-danger {
+      width: 100%;
+      padding: 11px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--danger);
+      border-radius: 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 16px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px;
+    }
+
+    .top-banner-ad {
+      position: relative;
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      background: #000;
+    }
+
+    /* STICKY BOTTOM BANNER AD */
+    .sticky-banner-ad {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: #000;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+    }
+
+    .status-card {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .consent-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; background: #000; color: #f9fafb; }
+    .consent-card { width: 100%; max-width: 420px; padding: 26px 22px; border: 1px solid rgba(16,185,129,.45); border-radius: 20px; background: #050505; text-align: left; box-shadow: 0 0 35px rgba(16,185,129,.12); }
+    .consent-card h2 { color: #34d399; margin-bottom: 14px; font-size: 1.25rem; }
+    .consent-card p { color: #d1d5db; font-size: .88rem; line-height: 1.65; margin-bottom: 12px; }
+    .header-actions { display:flex; justify-content:flex-end; margin-bottom: 8px; position:relative; }
+    .settings-btn { background:rgba(0,0,0,.35); border:1px solid var(--border-color); color:var(--text-main); border-radius:12px; padding:9px 12px; cursor:pointer; }
+    .settings-menu { display:none; position:absolute; top:44px; right:0; width:min(280px, 85vw); padding:14px; background:#101826; border:1px solid var(--border-color); border-radius:16px; z-index:950; box-shadow:0 12px 30px rgba(0,0,0,.45); }
+    .settings-menu.open { display:block; }
+    .settings-menu .privacy-card { margin:0 0 12px; }
+    .settings-menu .btn-danger { margin-top:8px; }
+    .settings-menu { padding:15px; border-radius:20px; width:min(320px,90vw); }
+    .settings-heading { display:flex; align-items:center; gap:11px; padding:3px 2px 14px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,.09); }
+    .settings-heading-icon { width:39px; height:39px; flex:0 0 39px; display:grid; place-items:center; border-radius:13px; color:#5eead4; background:linear-gradient(145deg,rgba(16,185,129,.2),rgba(6,182,212,.16)); border:1px solid rgba(94,234,212,.22); }
+    .settings-heading strong { display:block; color:#f8fafc; font-size:.92rem; letter-spacing:.1px; }
+    .settings-heading small { display:block; color:#94a3b8; font-size:.68rem; margin-top:3px; }
+    .settings-menu .privacy-card { gap:12px; align-items:center; padding:15px 13px; border:1px solid rgba(94,234,212,.17); background:linear-gradient(145deg,rgba(16,185,129,.09),rgba(255,255,255,.035)); box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+    .settings-menu .privacy-info { min-width:0; flex:1; }
+    .settings-menu .privacy-info h4 { display:flex; align-items:center; gap:7px; font-size:.82rem; line-height:1.4; margin-bottom:6px; }
+    .settings-menu .privacy-info h4 i { color:#5eead4; }
+    .settings-menu .privacy-info p { font-size:.68rem; line-height:1.55; color:#aab7c8; }
+    .privacy-state { display:inline-flex; align-items:center; margin-top:9px; padding:4px 8px; border-radius:20px; font-size:.64rem; font-weight:800; color:#6ee7b7; background:rgba(16,185,129,.13); }
+    .settings-menu .switch { flex:0 0 48px; }
+    .settings-menu .btn-danger { width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px; font-weight:800; }
+
+  </style>
+</head>
+<body>
+  <div id="startupLoader" style="display:none;position:fixed;inset:0;z-index:3000;background:#0b1220;color:#fff;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+    <i class="fa-solid fa-spinner fa-spin" style="font-size:32px;color:#10b981;"></i>
+    <div style="font-weight:700;">MAPOO खुल रहा है...</div>
+    <small style="color:#aab4c5;">आपका लॉगिन जाँचा जा रहा है</small>
+  </div>
+
+  <!-- Privacy confirmation is shown only until the user accepts it once. -->
+  <div id="consentScreen" class="consent-overlay">
+    <div class="consent-card">
+      <div class="mapo-logo-wrapper" style="justify-content:flex-start; margin-bottom:18px;"><span class="logo-text">MAPOO</span></div>
+      <h2>प्राइवेसी और डेटा की अनुमति</h2>
+      <p>आगे बढ़ने पर आप सहमति देते हैं कि MAPOO की प्रोफाइल और लोकेशन खोज सुविधा चलाने के लिए आपके दिए गए नाम, पिता का नाम, पता, मोबाइल नंबर और GPS लोकेशन जैसी जानकारी सुरक्षित रखी जा सकती है।</p>
+      <p>कृपया वही जानकारी साझा करें जिसे साझा करने में आपको कोई परेशानी या असुरक्षा महसूस न हो। आपकी प्रोफाइल का डेटा तब तक सुरक्षित रहेगा जब तक आप अपना अकाउंट या प्रोफाइल स्वयं नहीं हटाते। आप कभी भी अपनी प्रोफाइल हटा सकते हैं और सर्च में अपनी प्रोफाइल दिखाने की सेटिंग ON या OFF कर सकते हैं।</p>
+      <p>आपकी GPS लोकेशन तभी ली जाएगी जब आप लोकेशन सेव करने का बटन दबाएँगे और लोकेशन की अनुमति देंगे। सर्च में आपकी प्रोफाइल तभी दिखाई देगी जब आपने सर्च सेटिंग ON रखी होगी।</p>
+      <button class="btn-primary" type="button" onclick="acceptPrivacyConsent()"><i class="fa-solid fa-check"></i> कन्फर्म करें और आगे बढ़ें</button>
+    </div>
+  </div>
+
+  <!-- ACCOUNT CREATE / PIN LOGIN GATE -->
+  <div id="firstTimeGate" class="gate-overlay" style="display:none;">
+    <div class="gate-card">
+      <div class="mapo-logo-wrapper">
+        <svg class="mapo-svg-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="46" fill="url(#bg-grad)" stroke="#10b981" stroke-width="3"/>
+          <path d="M50 20C36.2 20 25 31.2 25 45C25 62.5 50 82 50 82C50 82 75 62.5 75 45C75 31.2 63.8 20 50 20Z" fill="url(#pin-grad)" stroke="#06b6d4" stroke-width="2"/>
+          <path d="M42 52V42H58V52H42Z" fill="#ffffff"/>
+          <path d="M50 34L37 43H63L50 34Z" fill="#34d399"/>
+          <rect x="60" y="60" width="14" height="12" rx="2" fill="#fbbf24"/>
+          <defs>
+            <linearGradient id="bg-grad" x1="0" y1="0" x2="100" y2="100">
+              <stop offset="0%" stop-color="#0f2027"/>
+              <stop offset="100%" stop-color="#203a43"/>
+            </linearGradient>
+            <linearGradient id="pin-grad" x1="25" y1="20" x2="75" y2="82">
+              <stop offset="0%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">MAPOO</span>
+      </div>
+
+      <h3 id="gateTitle" style="margin-bottom: 4px;">अकाउंट बनाएँ</h3>
+      <p id="gateSub" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 18px;">मोबाइल नंबर दर्ज करें और अपना 4 अंकों का PIN बनाएँ।</p>
+      <div class="input-group" id="loginPhoneGroup"><label for="loginPhone">मोबाइल नंबर दर्ज करें</label><input class="input-box" id="loginPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 अंकों का मोबाइल नंबर" autocomplete="tel"></div>
+      <div class="input-group"><label for="loginPin" id="loginPinLabel">अपना 4 अंकों का PIN बनाएँ</label><input class="input-box" id="loginPin" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN दर्ज करें"></div>
+      <button type="button" class="btn-primary" id="pinLoginBtn" onclick="loginWithPin()" style="display:none;"><i class="fa-solid fa-lock-open"></i> खोलें</button>
+      <button type="button" class="btn-secondary" id="createPinBtn" onclick="createAccountWithPin()"><i class="fa-solid fa-user-plus"></i> अकाउंट बनाएँ</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <!-- Top banner slot reserved for a plugin that supports a second banner instance. Official test unit: ADMOB_TEST_BANNER_ID. -->
+  <div class="top-banner-ad" id="topBannerAd" aria-label="Google AdMob टेस्ट बैनर विज्ञापन"></div>
+  <div class="app-container" id="mainAppContainer" style="display:none;">
+    <div class="header-actions">
+      <button type="button" class="settings-btn" onclick="toggleSettingsMenu()" aria-label="Settings"><i class="fa-solid fa-gear"></i> Settings</button>
+      <div id="settingsMenu" class="settings-menu">
+        <div class="settings-heading"><span class="settings-heading-icon"><i class="fa-solid fa-sliders"></i></span><div><strong>प्राइवेसी और सर्च</strong><small>अपनी प्रोफाइल की खोज सेटिंग नियंत्रित करें</small></div></div>
+        <div class="privacy-card">
+          <div class="privacy-info"><h4><i class="fa-solid fa-magnifying-glass-location"></i> सर्च में मेरी प्रोफाइल दिखाएँ</h4><p>ON रहने पर दूसरे लोग आपके मोबाइल नंबर से आपकी सेव की हुई प्रोफाइल और लोकेशन खोज सकेंगे। आप इसे कभी भी OFF कर सकते हैं।</p><span class="privacy-state" id="visibilityState">सर्च में दिखाई देगी</span></div>
+          <label class="switch" aria-label="सर्च में प्रोफाइल दिखाएँ"><input type="checkbox" id="visibilityToggle" checked onchange="toggleVisibility(this.checked)"><span class="slider"></span></label>
+        </div>
+        <button class="btn-danger" type="button" onclick="deleteProfile()"><i class="fa-solid fa-trash-can"></i> अकाउंट और प्रोफाइल हटाएँ</button>
+      </div>
+    </div>
+    <div class="app-header">
+      <div class="mapo-logo-wrapper">
+        <svg class="mapo-svg-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="46" fill="url(#bg-grad2)" stroke="#10b981" stroke-width="3"/>
+          <path d="M50 20C36.2 20 25 31.2 25 45C25 62.5 50 82 50 82C50 82 75 62.5 75 45C75 31.2 63.8 20 50 20Z" fill="url(#pin-grad2)" stroke="#06b6d4" stroke-width="2"/>
+          <path d="M42 52V42H58V52H42Z" fill="#ffffff"/>
+          <path d="M50 34L37 43H63L50 34Z" fill="#34d399"/>
+          <rect x="60" y="60" width="14" height="12" rx="2" fill="#fbbf24"/>
+          <defs>
+            <linearGradient id="bg-grad2" x1="0" y1="0" x2="100" y2="100">
+              <stop offset="0%" stop-color="#0f2027"/>
+              <stop offset="100%" stop-color="#203a43"/>
+            </linearGradient>
+            <linearGradient id="pin-grad2" x1="25" y1="20" x2="75" y2="82">
+              <stop offset="0%" stop-color="#06b6d4"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">MAPOO</span>
+      </div>
+      <p class="tagline">सटीक एड्रेस शेयरिंग और Google Maps नेविगेशन</p>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('profile')">
+        <i class="fa-solid fa-user"></i> मेरी लोकेशन
+      </button>
+      <button class="tab-btn" onclick="switchTab('search')">
+        <i class="fa-solid fa-magnifying-glass"></i> नंबर खोजें
+      </button>
+    </div>
+
+    <!-- VIEW 1: MY LOCATION -->
+    <div id="profileView" class="view-section active">
+      <form id="profileForm" onsubmit="executeSaveProfile(event)">
+        <div class="input-group">
+          <label>आपका पूरा नाम</label>
+          <input type="text" id="fullName" class="input-box" placeholder="उदा. राहुल शर्मा" required>
+        </div>
+
+        <div class="input-group">
+          <label>पिताजी का नाम</label>
+          <input type="text" id="fatherName" class="input-box" placeholder="उदा. श्री रमेश शर्मा" required>
+        </div>
+
+        <div class="input-group">
+          <label>मोहल्ला / घर का विवरण</label>
+          <input type="text" id="mohalla" class="input-box" placeholder="उदा. शांति नगर, गली नं. 3 / घर नं. 12" required>
+        </div>
+
+        <div class="input-group">
+          <label>मोबाइल नंबर (यूज़र द्वारा दर्ज)</label>
+          <input type="tel" id="phoneNumber" class="input-box" placeholder="10 अंकों का नंबर" pattern="[0-9]{10}" maxlength="10" inputmode="numeric" readonly aria-readonly="true">
+        </div>
+
+        <div class="gps-panel">
+          <h3><i class="fa-solid fa-location-crosshairs"></i> अपनी GPS लोकेशन</h3>
+          <p>GPS शुरू करने से पहले मोबाइल को स्थिर रखें। सिस्टम अधिकतम 30 सेकंड तक GPS रीडिंग जाँचेगा। ±3 मीटर या बेहतर सटीकता मिलने पर ही लोकेशन सेव होगी। घर की सटीक लोकेशन के लिए संभव हो तो घर की छत पर खुले आसमान के नीचे जाकर GPS चालू करें।</p>
+          <div class="gps-actions">
+            <button type="button" class="gps-action-btn" id="getGpsBtn" onclick="captureGpsLocation()">
+              <i class="fa-solid fa-location-dot"></i> अपनी लोकेशन चालू करें
+            </button>
+            <button type="submit" class="gps-action-btn secondary" id="saveBtn" disabled>
+              <i class="fa-solid fa-floppy-disk"></i> सेव डिटेल्स
+            </button>
+          </div>
+          <div id="gpsPreview"></div>
+        </div>
+      </form>
+
+      <div id="locationStatus" class="status-card" style="display: none;">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="statusText">लोकेशन और पता सेव हो गया है!</span>
+      </div>
+
+    </div>
+
+    <!-- VIEW 2: SEARCH NUMBER -->
+    <div id="searchView" class="view-section">
+      <div class="input-group">
+        <label>मोबाइल नंबर से खोजें</label>
+        <input type="tel" id="searchPhone" class="input-box" placeholder="10 अंकों का मोबाइल नंबर डालें" pattern="[0-9]{10}">
+      </div>
+
+      <button class="btn-primary" id="searchLocationBtn" type="button" onclick="triggerSearchWithAd()">
+        <i class="fa-solid fa-magnifying-glass"></i> लोकेशन ढूँढें
+      </button>
+
+      <div id="searchResult" class="result-card">
+        <div class="user-avatar" id="resAvatar">R</div>
+        <h3 id="resName" style="margin-bottom: 2px;">राहुल शर्मा</h3>
+        <p id="resFather" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px;">पिता: श्री रमेश शर्मा</p>
+        <p id="resAddress" style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600; margin-bottom: 6px;">पता: मकान नं. 12, राम नगर</p>
+        <p id="resMohalla" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">मोहल्ला: शांति नगर</p>
+        <p id="resCoordinates" style="display:none"> </p>
+        <p id="resAccuracy" style="display:none"> </p>
+        <a id="googleMapsLink" href="#" target="_blank" rel="noopener noreferrer" class="maps-btn">
+          <i class="fa-solid fa-route"></i> रास्ता दिखाएँ
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- REWARDED AD PLACEHOLDER: real AdMob rewarded SDK/Capacitor bridge must be connected -->
+  <div id="adModal" class="ad-modal">
+    <div class="ad-card">
+      <div class="ad-timer-badge">
+        <i class="fa-solid fa-rectangle-ad"></i> Rewarded Advertisement
+      </div>
+      <h4 style="margin-bottom: 8px; color: #fff;">स्पॉन्सर्ड विज्ञापन</h4>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
+        सर्च जारी रखने के लिए उपलब्ध rewarded विज्ञापन पूरा देखें।
+      </p>
+
+      <div style="background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2); height: 140px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 12px;">
+        <i class="fa-solid fa-clapperboard" style="font-size: 2.2rem; color: var(--accent-teal); margin-bottom: 8px;"></i>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">AdMob Rewarded Video Ad</span>
+        <span style="font-size: 0.65rem; color: #6b7280; margin-top: 4px;">Native AdMob SDK / Capacitor plugin required</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM STICKY BANNER AD -->
+  <div class="sticky-banner-ad" id="bottomBannerAd">
+    <div style="font-size: 0.7rem; color: #6b7280; display: flex; align-items: center; gap: 6px;">
+      <i class="fa-solid fa-rectangle-ad" style="color: var(--accent-emerald);"></i>
+      <span>AdMob Banner — Native Capacitor SDK required</span>
+    </div>
+  </div>
+
+  <script>
+    // ================= MAPOO CONFIGURATION =================
+    // Supabase Dashboard -> Project Settings -> API: Project URL + anon/publishable key.
+    const SUPABASE_URL = "https://hqrogcawdddezacqpizp.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_90X6Uva5PFNllLXmuFtoCg_Ii8Pkn-A";
+
+    // Google official sample ad units (TEST ONLY). Replace with your own IDs before release.
+    const ADMOB_TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
+    const ADMOB_TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917";
+
+    // Supabase PIN login. PIN verification and hashing happen on the server via RPC.
+    const supabaseClient = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    let enteredPhone = localStorage.getItem('mapoo_saved_phone') || '';
+    let enteredUid = localStorage.getItem('mapoo_account_id') || '';
+
+    function requireSupabase() {
+      if (!supabaseClient) { alert("Supabase सेटअप पूरा नहीं है। SUPABASE_URL और SUPABASE_ANON_KEY जाँचें।"); return false; }
+      return true;
+    }
+    function normalizePhone(value) {
+      const digits = String(value || '').replace(/\D/g, '');
+      return digits.length === 10 ? '+91' + digits : '';
+    }
+    function setGateBusy(busy, id, label) {
+      const button = document.getElementById(id);
+      if (!button) return;
+      button.disabled = busy;
+      if (busy) button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + label;
+      else if (id === 'pinLoginBtn') button.innerHTML = '<i class="fa-solid fa-lock-open"></i> खोलें';
+      else button.innerHTML = '<i class="fa-solid fa-user-plus"></i> अकाउंट बनाएँ';
+    }
+    function updateLoginGate() {
+      const hasPhone = !!localStorage.getItem('mapoo_saved_phone');
+      const hasAccountId = !!localStorage.getItem('mapoo_account_id');
+      const profileIsComplete = localStorage.getItem('mapoo_profile_completed') === 'yes';
+      // PIN-only on later launches is enabled ONLY after profile + GPS save succeeds.
+      // Incomplete registrations must enter phone + their existing PIN again.
+      const isPinLogin = hasPhone && hasAccountId && profileIsComplete;
+      const phoneGroup = document.getElementById('loginPhoneGroup');
+      const createButton = document.getElementById('createPinBtn');
+      const loginButton = document.getElementById('pinLoginBtn');
+      const title = document.getElementById('gateTitle');
+      const sub = document.getElementById('gateSub');
+      const pinLabel = document.getElementById('loginPinLabel');
+
+      if (phoneGroup) phoneGroup.style.display = isPinLogin ? 'none' : 'block';
+      if (createButton) createButton.style.display = isPinLogin ? 'none' : 'block';
+      if (loginButton) loginButton.style.display = isPinLogin ? 'block' : 'none';
+      if (title) title.textContent = isPinLogin ? 'PIN से लॉगिन करें' : 'अकाउंट बनाएँ';
+      if (sub) sub.textContent = isPinLogin
+        ? 'अपना 4 अंकों का PIN दर्ज करें।'
+        : 'मोबाइल नंबर दर्ज करें और अपना 4 अंकों का PIN बनाएँ।';
+      if (pinLabel) pinLabel.textContent = isPinLogin
+        ? 'अपना 4 अंकों का PIN दर्ज करें'
+        : 'अपना 4 अंकों का PIN बनाएँ';
+      enteredPhone = localStorage.getItem('mapoo_saved_phone') || '';
+      const phoneInput = document.getElementById('loginPhone');
+      if (phoneInput && enteredPhone) phoneInput.value = enteredPhone.replace(/^\+91/, '');
+    }
+
+    async function loginWithPin() {
+      if (!requireSupabase()) return;
+      const pin = document.getElementById('loginPin').value.trim();
+      if (!/^\d{4}$/.test(pin)) { alert('कृपया 4 अंकों का PIN दर्ज करें।'); return; }
+      enteredPhone = localStorage.getItem('mapoo_saved_phone') || '';
+      if (!enteredPhone) {
+        alert('इस डिवाइस पर मोबाइल नंबर सेव नहीं है। पहली बार अकाउंट बनाएँ।');
+        updateLoginGate();
+        document.getElementById('loginPhone').focus();
+        return;
+      }
+      setGateBusy(true, 'pinLoginBtn', 'PIN जाँचा जा रहा है...');
+      try {
+        const { data, error } = await supabaseClient.rpc('mapoo_login_with_pin', { p_phone: enteredPhone, p_pin: pin });
+        if (error) throw error;
+        const account = Array.isArray(data) ? data[0] : data;
+        if (!account || !account.account_id) throw new Error('PIN सही नहीं है।');
+        enteredUid = account.account_id;
+        document.getElementById('loginPin').value = '';
+        const { data: profileData, error: profileError } = await supabaseClient.rpc(
+          'mapoo_get_own_profile', { p_account_id: enteredUid }
+        );
+        if (profileError) throw profileError;
+        const profileRow = Array.isArray(profileData) ? profileData[0] : profileData;
+        const isComplete = !!(profileRow && profileRow.full_name && profileRow.father_name &&
+          profileRow.address && profileRow.latitude != null && profileRow.longitude != null);
+        if (isComplete) {
+          localStorage.setItem('mapoo_saved_phone', enteredPhone);
+          localStorage.setItem('mapoo_account_id', enteredUid);
+          localStorage.setItem('mapoo_account_created', 'yes');
+          localStorage.setItem('mapoo_profile_completed', 'yes');
+        } else {
+          // Keep phone/account ID locally before profile completion; never store the PIN.
+          // On next launch the phone is prefilled, so the user only needs their PIN.
+          localStorage.setItem('mapoo_saved_phone', enteredPhone);
+          localStorage.setItem('mapoo_account_id', enteredUid);
+          localStorage.setItem('mapoo_account_created', 'yes');
+          localStorage.removeItem('mapoo_profile_completed');
+        }
+        await openMainApp();
+        if (!isComplete) {
+          switchTab('profile');
+          showStatus('अपनी प्रोफाइल और GPS लोकेशन पूरी करके “सेव डिटेल्स” दबाएँ।');
+        }
+      } catch (error) { alert('लॉगिन नहीं हुआ: ' + (error.message || 'कृपया दोबारा प्रयास करें।')); }
+      finally { setGateBusy(false, 'pinLoginBtn'); }
+    }
+
+    async function createAccountWithPin() {
+      if (!requireSupabase()) return;
+      const phone = normalizePhone(document.getElementById('loginPhone').value.trim());
+      const pin = document.getElementById('loginPin').value.trim();
+      if (!phone) { alert('कृपया सही 10 अंकों का मोबाइल नंबर दर्ज करें।'); return; }
+      if (!/^\d{4}$/.test(pin)) { alert('कृपया 4 अंकों का PIN दर्ज करें।'); return; }
+      setGateBusy(true, 'createPinBtn', 'अकाउंट बनाया जा रहा है...');
+      try {
+        const { data, error } = await supabaseClient.rpc('mapoo_register_with_pin', { p_phone: phone, p_pin: pin });
+        if (error) throw error;
+        const account = Array.isArray(data) ? data[0] : data;
+        if (!account || !account.account_id) throw new Error('अकाउंट ID नहीं मिली।');
+        enteredPhone = phone; enteredUid = account.account_id;
+        localStorage.setItem('mapoo_saved_phone', enteredPhone);
+        localStorage.setItem('mapoo_account_id', enteredUid);
+        localStorage.setItem('mapoo_account_created', 'yes');
+        localStorage.removeItem('mapoo_profile_completed');
+        document.getElementById('loginPin').value = '';
+        updateLoginGate();
+        await openMainApp();
+      } catch (error) {
+        try {
+          const { data: loginData, error: loginError } = await supabaseClient.rpc(
+            'mapoo_login_with_pin', { p_phone: phone, p_pin: pin }
+          );
+          if (loginError) throw loginError;
+          const existing = Array.isArray(loginData) ? loginData[0] : loginData;
+          if (!existing || !existing.account_id) throw new Error('इस नंबर का PIN अलग है। पहली बार बनाया गया वही PIN डालें।');
+          enteredPhone = phone;
+          enteredUid = existing.account_id;
+          const { data: profileData, error: profileError } = await supabaseClient.rpc(
+            'mapoo_get_own_profile', { p_account_id: enteredUid }
+          );
+          if (profileError) throw profileError;
+          const row = Array.isArray(profileData) ? profileData[0] : profileData;
+          const complete = !!(row && row.full_name && row.father_name && row.address &&
+            row.latitude != null && row.longitude != null);
+          document.getElementById('loginPin').value = '';
+          if (complete) {
+            localStorage.setItem('mapoo_saved_phone', enteredPhone);
+            localStorage.setItem('mapoo_account_id', enteredUid);
+            localStorage.setItem('mapoo_account_created', 'yes');
+            localStorage.setItem('mapoo_profile_completed', 'yes');
+          } else {
+            localStorage.setItem('mapoo_saved_phone', enteredPhone);
+            localStorage.setItem('mapoo_account_id', enteredUid);
+            localStorage.setItem('mapoo_account_created', 'yes');
+            localStorage.removeItem('mapoo_profile_completed');
+          }
+          await openMainApp();
+          if (!complete) {
+            switchTab('profile');
+            showStatus('अपनी प्रोफाइल और GPS लोकेशन पूरी करके “सेव डिटेल्स” दबाएँ।');
+          }
+        } catch (resumeError) {
+          alert('रजिस्ट्रेशन आगे नहीं बढ़ा: ' + (resumeError.message || error.message || 'कृपया नंबर और PIN जाँचें।'));
+        }
+      }
+      finally { setGateBusy(false, 'createPinBtn'); }
+    }
+    async function openMainApp() {
+      document.getElementById('firstTimeGate').style.display = 'none';
+      document.getElementById('mainAppContainer').style.display = 'block';
+      document.getElementById('phoneNumber').value = enteredPhone.replace(/^\+91/, '');
+      await loadOwnProfile();
+      initializeBannerAds();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const mainApp = document.getElementById('mainAppContainer');
+      const consentScreen = document.getElementById('consentScreen');
+      const loginGate = document.getElementById('firstTimeGate');
+      const loader = document.getElementById('startupLoader');
+      if (mainApp) mainApp.style.display = 'none';
+      const privacyAccepted = localStorage.getItem('mapooPrivacyConsentV1') === 'accepted';
+      const completedProfile = localStorage.getItem('mapoo_profile_completed') === 'yes';
+      if (!completedProfile) {
+        // An account that never completed profile/GPS must not become PIN-only.
+        localStorage.removeItem('mapoo_saved_phone');
+        localStorage.removeItem('mapoo_account_id');
+        localStorage.removeItem('mapoo_account_created');
+      }
+      consentScreen.style.display = privacyAccepted ? 'none' : 'flex';
+      loginGate.style.display = privacyAccepted ? 'flex' : 'none';
+      updateLoginGate();
+      if (loader) loader.style.display = 'none';
+      const phone = document.getElementById('loginPhone');
+      const pin = document.getElementById('loginPin');
+      phone.addEventListener('input', () => phone.value = phone.value.replace(/\D/g, '').slice(0, 10));
+      pin.addEventListener('input', () => pin.value = pin.value.replace(/\D/g, '').slice(0, 4));
+    });
+
+    window.acceptPrivacyConsent = function acceptPrivacyConsent() {
+      localStorage.setItem('mapooPrivacyConsentV1', 'accepted');
+      document.getElementById('consentScreen').style.display = 'none';
+      document.getElementById('firstTimeGate').style.display = 'flex';
+      document.getElementById('mainAppContainer').style.display = 'none';
+      updateLoginGate();
+    };
+
+    function toggleSettingsMenu() {
+      document.getElementById('settingsMenu').classList.toggle('open');
+    }
+
+    async function loadOwnProfile() {
+      if (!supabaseClient || !enteredPhone || !enteredUid) return;
+      try {
+        const { data, error } = await supabaseClient.rpc('mapoo_get_own_profile', { p_account_id: enteredUid });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) {
+          const visibilityWasManuallyChanged = localStorage.getItem('mapoo_visibility_user_changed') === 'yes';
+          // A new install/profile defaults to searchable. Searching never changes this setting;
+          // only a successful manual switch action records the user's choice.
+          if (!visibilityWasManuallyChanged && row.is_visible === false && row.full_name && row.latitude != null && row.longitude != null) {
+            const { error: visibilityError } = await supabaseClient.rpc('mapoo_set_visibility', {
+              p_account_id: enteredUid, p_is_visible: true
+            });
+            if (visibilityError) console.warn('Could not apply default searchable setting:', visibilityError);
+          }
+          fillProfileData({ phone: row.phone_number || enteredPhone, name: row.full_name, father: row.father_name,
+            address: row.address, mohalla: row.mohalla, lat: row.latitude, lng: row.longitude,
+            accuracy: row.location_accuracy_m, visible: visibilityWasManuallyChanged ? row.is_visible : true });
+          const complete = !!(row.full_name && row.father_name && row.address &&
+            row.latitude != null && row.longitude != null);
+          if (complete) localStorage.setItem('mapoo_profile_completed', 'yes');
+          else localStorage.removeItem('mapoo_profile_completed');
+        } else {
+          fillProfileData({ phone: enteredPhone, visible: true });
+          localStorage.removeItem('mapoo_profile_completed');
+        }
+      } catch (error) { console.error('Profile load failed:', error); fillProfileData({ phone: enteredPhone, visible: true }); }
+    }
+
+    function fillProfileData(savedUser) {
+      document.getElementById('phoneNumber').value = String(enteredPhone || savedUser.phone || '').replace(/^\+91/, '');
+      document.getElementById('fullName').value = savedUser.name || '';
+      document.getElementById('fatherName').value = savedUser.father || '';
+      document.getElementById('mohalla').value = savedUser.mohalla || savedUser.address || '';
+      document.getElementById('visibilityToggle').checked = savedUser.visible == null ? true : savedUser.visible !== false;
+      const visibilityState = document.getElementById('visibilityState');
+      if (visibilityState) visibilityState.textContent = savedUser.visible == null || savedUser.visible !== false ? 'सर्च में दिखाई देगी' : 'सर्च से छुपी रहेगी';
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
+      if (tabName === 'profile') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('profileView').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('searchView').classList.add('active');
+      }
+    }
+
+    // Rewarded ads use Google's official TEST unit and are requested only before opening Google Maps directions.
+    // The ad network controls creative duration; HTML cannot force every rewarded video to be exactly 30 seconds.
+    async function startRewardedAd() {
+      const plugin = window.Capacitor?.Plugins?.AdMob || window.Capacitor?.Plugins?.GoogleAdMob;
+      if (!plugin) { console.warn('Rewarded Ad plugin unavailable; continuing to Google Maps without blocking.'); return true; }
+      try {
+        if (typeof plugin.showRewardedAd === 'function') {
+          const result = await plugin.showRewardedAd({ adUnitId: ADMOB_TEST_REWARDED_ID });
+          return result?.rewarded === true || result?.type === 'reward' || result?.type === 'rewarded';
+        }
+        if (typeof plugin.prepareRewardVideoAd === 'function' && typeof plugin.showRewardVideoAd === 'function') {
+          await plugin.prepareRewardVideoAd({ adId: ADMOB_TEST_REWARDED_ID });
+          const result = await plugin.showRewardVideoAd();
+          return result?.type === 'reward' || result?.type === 'rewarded' || result?.rewarded === true;
+        }
+        console.warn('Rewarded Ad plugin API is not supported by this bridge; continuing to Google Maps.');
+        return true;
+      } catch (error) {
+        console.warn('Rewarded test ad failed; continuing to Google Maps:', error);
+        return true;
+      }
+    }
+
+    // Collect fresh GPS fixes for up to two minutes. Only accept a device-reported
+    // accuracy radius of 3 metres or better; this is a device estimate, not a guarantee.
+    const MAPOO_TARGET_GPS_ACCURACY_M = 3;
+    const MAPOO_GPS_MAX_WAIT_MS = 30000;
+
+    function collectBestBrowserGps(maxWaitMs = MAPOO_GPS_MAX_WAIT_MS, onUpdate = () => {}) {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('इस डिवाइस में GPS उपलब्ध नहीं है।'));
+        let watchId = null, best = null, readings = 0, finished = false;
+        const startedAt = Date.now();
+        const finish = (err) => {
+          if (finished) return;
+          finished = true;
+          if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+          clearTimeout(timer);
+          if (best && Number(best.coords.accuracy) <= MAPOO_TARGET_GPS_ACCURACY_M) resolve(best);
+          else reject(err || new Error(best ? `30 सेकंड में GPS सटीकता ±${Math.round(best.coords.accuracy)} मीटर रही। ±3 मीटर या बेहतर फिक्स नहीं मिला, इसलिए लोकेशन सेव नहीं की गई। खुले स्थान पर मोबाइल स्थिर रखकर फिर कोशिश करें।` : 'GPS लोकेशन नहीं मिली।'));
+        };
+        const timer = setTimeout(() => finish(), maxWaitMs);
+        watchId = navigator.geolocation.watchPosition(pos => {
+          const c = pos?.coords;
+          if (!c || !Number.isFinite(c.latitude) || !Number.isFinite(c.longitude) || !Number.isFinite(c.accuracy)) return;
+          readings++;
+          if (!best || c.accuracy < best.coords.accuracy) best = pos;
+          onUpdate(c.accuracy, readings, Math.round((Date.now() - startedAt) / 1000));
+          if (Date.now() - startedAt >= 5000 && readings >= 3 && c.accuracy <= MAPOO_TARGET_GPS_ACCURACY_M) finish();
+        }, err => console.warn('Browser GPS watch:', err), {
+          enableHighAccuracy: true, maximumAge: 0, timeout: maxWaitMs
+        });
+      });
+    }
+
+    function collectBestNativeGps(geo, maxWaitMs = MAPOO_GPS_MAX_WAIT_MS, onUpdate = () => {}) {
+      return new Promise(async (resolve, reject) => {
+        let watchId = null, best = null, readings = 0, finished = false;
+        const startedAt = Date.now();
+        const finish = async (err) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          if (watchId != null) {
+            try { await geo.clearWatch({ id: watchId }); } catch (e) { console.warn('GPS watch cleanup:', e); }
+          }
+          if (best && Number(best.coords.accuracy) <= MAPOO_TARGET_GPS_ACCURACY_M) resolve(best);
+          else reject(err || new Error(best ? `30 सेकंड में GPS सटीकता ±${Math.round(best.coords.accuracy)} मीटर रही। ±3 मीटर या बेहतर फिक्स नहीं मिला, इसलिए लोकेशन सेव नहीं की गई। खुले स्थान पर मोबाइल स्थिर रखकर फिर कोशिश करें।` : 'Native GPS से लोकेशन नहीं मिली।'));
+        };
+        const timer = setTimeout(() => { finish(); }, maxWaitMs);
+        try {
+          watchId = await geo.watchPosition({ enableHighAccuracy: true, maximumAge: 0, timeout: maxWaitMs }, (pos, err) => {
+            if (finished) return;
+            if (err) { console.warn('Native GPS watch:', err); return; }
+            const c = pos?.coords;
+            if (!c || !Number.isFinite(c.latitude) || !Number.isFinite(c.longitude) || !Number.isFinite(c.accuracy)) return;
+            readings++;
+            if (!best || c.accuracy < best.coords.accuracy) best = pos;
+            onUpdate(c.accuracy, readings, Math.round((Date.now() - startedAt) / 1000));
+            if (Date.now() - startedAt >= 5000 && readings >= 3 && c.accuracy <= MAPOO_TARGET_GPS_ACCURACY_M) finish();
+          });
+        } catch (err) { finish(err); }
+      });
+    }
+
+    let capturedGpsPosition = null;
+
+    // Android build requirement: install @capacitor/geolocation and run npx cap sync android.
+    // The native plugin requests Android runtime location permission on this button click.
+
+    function mapooGpsErrorMessage(error) {
+      const raw = `${error?.message || ''} ${error?.code || ''}`.toLowerCase();
+
+      if (error?.message === 'MAPOO_NATIVE_PLUGIN_MISSING') {
+        return 'Android GPS plugin और WebView दोनों से लोकेशन नहीं मिली। @capacitor/geolocation की Android installation और npx cap sync android जाँचें।';
+      }
+      if (raw.includes('permission') || error?.code === 1 ||
+          raw.includes('denied') || raw.includes('0003')) {
+        return 'फोन की Location अनुमति बंद है। App info → Permissions → Location → Allow करें।';
+      }
+      // Timeout / no-fix errors must NOT be reported as the phone Location switch being OFF.
+      if (error?.code === 3 || raw.includes('timeout') || raw.includes('timed out')) {
+        return 'फोन की Location चालू हो सकती है, लेकिन अभी GPS से position नहीं मिली (timeout)। खुले स्थान या बेहतर GPS/Wi‑Fi सिग्नल में दोबारा कोशिश करें।';
+      }
+      // Only explicit provider-disabled messages are treated as the system Location switch being OFF.
+      if (raw.includes('location services are disabled') ||
+          raw.includes('location service is disabled') ||
+          raw.includes('location provider is disabled') ||
+          raw.includes('gps provider is disabled') ||
+          raw.includes('location mode is off') ||
+          raw.includes('gps is disabled') ||
+          raw.includes('location is disabled')) {
+        return 'Android ने Location service बंद बताई है। अगर फोन में Location पहले से ON है, तो फोन Restart करके फिर कोशिश करें; यह GPS provider की रिपोर्ट भी हो सकती है।';
+      }
+      if (error?.code === 2 || raw.includes('unavailable') ||
+          raw.includes('position unavailable') || raw.includes('location services')) {
+        return 'फोन की Location ON होने के बावजूद अभी GPS/Wi‑Fi/नेटवर्क से position नहीं मिली। यह Location OFF होने का पक्का प्रमाण नहीं है। 10–20 सेकंड बाद दोबारा कोशिश करें।';
+      }
+      return `लोकेशन प्राप्त नहीं हुई (${error?.message || 'अज्ञात GPS त्रुटि'})। फिर कोशिश करें।`;
+    }
+
+    async function captureGpsLocation() {
+      const confirmed = window.confirm('सटीक GPS के लिए मोबाइल को एक जगह स्थिर रखें और खुले आसमान के नीचे रहें। घर की सटीक लोकेशन के लिए संभव हो तो घर की छत पर जाएँ। GPS अधिकतम 30 सेकंड तक जाँचा जाएगा। लोकेशन तभी स्वीकार होगी जब फोन की बताई सटीकता ±3 मीटर या उससे बेहतर हो। यह फोन का GPS अनुमान है; हर जगह 1–3 मीटर की गारंटी नहीं होती। क्या शुरू करें?');
+      if (!confirmed) return;
+      const gpsBtn = document.getElementById('getGpsBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const preview = document.getElementById('gpsPreview');
+      gpsBtn.disabled = true;
+      saveBtn.disabled = true;
+      capturedGpsPosition = null;
+      gpsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> सटीक GPS खोज रहे हैं...';
+      preview.style.display = 'block';
+      preview.textContent = 'मोबाइल स्थिर रखें और संभव हो तो घर की छत पर खुले आसमान के नीचे रहें। GPS अधिकतम 30 सेकंड तक जाँचा जाएगा; ±3 मीटर या बेहतर सटीकता मिलने पर ही लोकेशन सेव होगी।';
+      const gpsProgress = (accuracy, readings, elapsed) => { preview.textContent = `GPS जाँच जारी है… अभी सटीकता ±${Math.round(accuracy)} मीटर | ${elapsed}/30 सेकंड | ${readings} रीडिंग। मोबाइल स्थिर रखें; ±3 मीटर या बेहतर होने पर ही लोकेशन स्वीकार होगी।`; };
+
+      try {
+        let position = null;
+        const isNative = !!(window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() === 'android');
+        let nativeError = null;
+        if (isNative && window.MapooNativeGeolocation) {
+          const geo = window.MapooNativeGeolocation;
+          let perms = await geo.checkPermissions();
+          if (perms.location !== 'granted' && perms.coarseLocation !== 'granted') perms = await geo.requestPermissions();
+          if (perms.location !== 'granted' && perms.coarseLocation !== 'granted') {
+            throw Object.assign(new Error('Location permission denied'), { code: 1 });
+          }
+          // Native GPS gets the full 30-second budget. Do not start a second
+          // 30-second WebView attempt after it, so total waiting stays bounded.
+          position = await collectBestNativeGps(geo, MAPOO_GPS_MAX_WAIT_MS, gpsProgress);
+        } else if (navigator.geolocation) {
+          // Browser/WebView fallback also has a strict 30-second maximum.
+          position = await collectBestBrowserGps(MAPOO_GPS_MAX_WAIT_MS, gpsProgress);
+        }
+        if (!position) throw nativeError || new Error('GPS position unavailable');
+
+        const c = position.coords;
+        const accuracy = Number(c.accuracy);
+        if (!Number.isFinite(accuracy) || accuracy > MAPOO_TARGET_GPS_ACCURACY_M) {
+          throw new Error(`GPS सटीकता ±${Math.round(accuracy || 0)} मीटर है। ±3 मीटर या बेहतर फिक्स के बिना लोकेशन सेव नहीं होगी। मोबाइल स्थिर रखकर खुले स्थान पर फिर कोशिश करें।`);
+        }
+        capturedGpsPosition = position;
+        preview.innerHTML = `<strong style="color:#6ee7b7">बेहतर GPS लोकेशन मिल गई ✓</strong><br>Latitude: ${c.latitude.toFixed(7)}<br>Longitude: ${c.longitude.toFixed(7)}<br>डिवाइस की बताई सटीकता: लगभग ±${Math.round(accuracy)} मीटर<br>अब “सेव डिटेल्स” दबाएँ।`;
+        saveBtn.disabled = false;
+        gpsBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> लोकेशन मिल गई';
+      } catch (error) {
+        console.error('MAPOO GPS diagnostic:', error, 'module:', window.MapooGeolocationModuleError);
+        capturedGpsPosition = null;
+        saveBtn.disabled = true;
+        const message = mapooGpsErrorMessage(error);
+        preview.textContent = message;
+        alert(message);
+        gpsBtn.innerHTML = '<i class="fa-solid fa-location-dot"></i> दोबारा GPS जाँचें';
+      } finally { gpsBtn.disabled = false; }
+    }
+
+    async function executeSaveProfile(event) {
+      if (event) event.preventDefault();
+      if (!supabaseClient || !enteredUid || !enteredPhone) { alert('पहले PIN से लॉगिन करें।'); return; }
+      const fullName = document.getElementById('fullName').value.trim();
+      const fatherName = document.getElementById('fatherName').value.trim();
+      const mohalla = document.getElementById('mohalla').value.trim();
+      const profilePhone = enteredPhone;
+      if (!profilePhone) { alert('आपका अकाउंट मोबाइल नंबर उपलब्ध नहीं है। दोबारा PIN से लॉगिन करें।'); return; }
+      if (!fullName || !fatherName || !mohalla) {
+        alert('नाम, पिताजी का नाम और मोहल्ला/घर का विवरण भरें।'); return;
+      }
+      if (!capturedGpsPosition) {
+        alert('पहले “अपनी लोकेशन चालू करें” बटन दबाकर GPS लोकेशन प्राप्त करें।');
+        return;
+      }
+
+      const saveBtn = document.getElementById('saveBtn');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> प्रोफाइल सेव हो रही है...';
+      try {
+        const position = capturedGpsPosition;
+        const accuracy = Number(position.coords.accuracy);
+        if (!Number.isFinite(accuracy) || accuracy > MAPOO_TARGET_GPS_ACCURACY_M) { alert(`यह GPS लोकेशन अभी ±${Math.round(accuracy || 0)} मीटर है। ±3 मीटर या बेहतर फिक्स के बिना इसे सेव नहीं किया जाएगा।`); return; }
+
+        const userData = {
+          full_name: fullName, father_name: fatherName, address: mohalla, mohalla,
+          phone_number: enteredPhone, account_id: enteredUid,
+          latitude: position.coords.latitude, longitude: position.coords.longitude,
+          location_accuracy_m: Number.isFinite(accuracy) ? accuracy : null,
+          is_visible: document.getElementById('visibilityToggle').checked,
+          updated_at: new Date().toISOString()
+        };
+        const { error } = await supabaseClient.rpc('mapoo_save_own_profile', { p_account_id: enteredUid, p_profile: userData });
+        if (error) throw error;
+        localStorage.setItem('mapoo_saved_phone', enteredPhone);
+        localStorage.setItem('mapoo_account_id', enteredUid);
+        localStorage.setItem('mapoo_account_created', 'yes');
+        localStorage.setItem('mapoo_profile_completed', 'yes');
+        // Persist phone/account locally ONLY after the profile + GPS RPC succeeds.
+        // Stay inside the app now; on the next cold launch the user enters PIN only.
+        localStorage.setItem('mapooPrivacyConsentV1', 'accepted');
+        document.getElementById('mainAppContainer').style.display = 'block';
+        document.getElementById('firstTimeGate').style.display = 'none';
+        showStatus('प्रोफाइल और लोकेशन सेव हो गई हैं। आप MAPOO इस्तेमाल कर सकते हैं।');
+        // Profile save completes without requiring an advertising plugin.
+      } catch (error) {
+        alert('प्रोफाइल सेव नहीं हो सकी: ' + (error.message || 'GPS अनुमति और Supabase सेटिंग जाँचें।'));
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> सेव डिटेल्स';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('searchPhone');
+      if (!input) return;
+      input.setAttribute('inputmode', 'numeric');
+      input.setAttribute('maxlength', '10');
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D/g, '').slice(0, 10);
+      });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          triggerSearchWithAd();
+        }
+      });
+      const mapsLink = document.getElementById('googleMapsLink');
+      if (mapsLink) {
+        mapsLink.addEventListener('click', async event => {
+          const mapUrl = mapsLink.href;
+          if (!mapUrl || mapUrl === '#' || !/^https:\/\//i.test(mapUrl)) return;
+          event.preventDefault();
+          // Open a temporary tab synchronously so Android WebView does not block
+          // Maps navigation after the asynchronous rewarded-ad flow.
+          let mapWindow = null;
+          try { mapWindow = window.open('about:blank', '_blank'); } catch (_) {}
+          try { await startRewardedAd(); }
+          finally {
+            if (mapWindow && !mapWindow.closed) {
+              try { mapWindow.location.replace(mapUrl); } catch (_) { window.location.href = mapUrl; }
+            } else {
+              window.location.href = mapUrl;
+            }
+          }
+        });
+      }
+    });
+
+    async function triggerSearchWithAd() {
+      const phoneInput = normalizePhone(document.getElementById('searchPhone').value.trim());
+      if (!phoneInput) { alert("कृपया सही 10 अंकों का मोबाइल नंबर डालें।"); return; }
+      if (!supabaseClient) { requireSupabase(); return; }
+      if (!enteredUid || !enteredPhone) {
+        alert('पहले अपने मोबाइल नंबर और PIN से लॉगिन करें।');
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient.rpc('mapoo_get_own_profile', { p_account_id: enteredUid });
+        if (error) throw error;
+        const own = Array.isArray(data) ? data[0] : data;
+        const ownSaved = !!(own && own.full_name && own.father_name && own.address &&
+          own.latitude != null && own.longitude != null);
+        if (!ownSaved) {
+          localStorage.removeItem('mapoo_profile_completed');
+          alert('पहले अपनी प्रोफाइल और GPS लोकेशन सेव करें। उसके बाद ही नंबर सर्च कर पाएँगे।');
+          switchTab('profile');
+          return;
+        }
+        localStorage.setItem('mapoo_profile_completed', 'yes');
+      } catch (error) {
+        alert('आपकी सेव प्रोफाइल जाँची नहीं जा सकी: ' + (error.message || 'फिर कोशिश करें।'));
+        return;
+      }
+      const button = document.getElementById('searchLocationBtn');
+      if (button) { button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> लोकेशन ढूँढ रहे हैं...'; }
+      try {
+        // Search results load directly. The rewarded TEST ad is requested only
+        // when the user taps 'रास्ता दिखाएँ' to open Google Maps.
+        await executeSearchLocation(phoneInput);
+      } catch (error) {
+        alert("सर्च नहीं हो पाया: " + (error.message || "कृपया फिर प्रयास करें।"));
+      } finally {
+        if (button) { button.disabled = false; button.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> लोकेशन ढूँढें'; }
+      }
+    }
+
+    async function executeSearchLocation(phoneInput) {
+      const resultCard = document.getElementById('searchResult');
+      resultCard.classList.remove('active');
+      try {
+        // Search through a restricted RPC so the client requests only one phone number,
+        // rather than having direct SELECT access to every visible profile.
+        const { data: rows, error } = await supabaseClient.rpc('search_visible_profile', { p_phone: phoneInput });
+        if (error) throw error;
+        const data = Array.isArray(rows) ? rows[0] : rows;
+        const searchStatus = String(data?.status || data?.search_status || data?.result || '').toLowerCase();
+        if (!data || data.latitude == null || data.longitude == null) {
+          // The current search_visible_profile RPC returns only searchable profiles.
+          // If the backend is later updated to return these status values, show the
+          // exact reason; an empty result by itself cannot distinguish the two cases.
+          resultCard.classList.remove('active');
+          if (['not_registered', 'not_found', 'unregistered'].includes(searchStatus)) {
+            alert("यह मोबाइल नंबर MAPOO पर रजिस्टर नहीं है।");
+          } else if (['search_off', 'hidden', 'not_visible'].includes(searchStatus)) {
+            alert("इस यूज़र ने अपनी प्रोफाइल का सर्च OFF कर रखा है।");
+          } else {
+            alert("इस मोबाइल नंबर की प्रोफाइल नहीं मिली। संभव है कि इस नंबर से MAPOO पर रजिस्ट्रेशन नहीं हुआ है, या उस यूज़र ने अपनी प्रोफाइल का सर्च OFF कर रखा है।");
+          }
+          return;
+        }
+        document.getElementById('resName').innerText = data.full_name || 'नाम उपलब्ध नहीं';
+        document.getElementById('resFather').innerText = "पिता: " + (data.father_name || 'उपलब्ध नहीं');
+        document.getElementById('resAddress').innerText = "पता: " + (data.address || 'उपलब्ध नहीं');
+        document.getElementById('resMohalla').innerText = "मोहल्ला: " + (data.mohalla || 'उपलब्ध नहीं');
+        document.getElementById('resAvatar').innerText = (data.full_name || '?').charAt(0).toUpperCase();
+        const lat = Number(data.latitude);
+        const lng = Number(data.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          alert("इस प्रोफाइल के GPS निर्देशांक सही नहीं हैं।"); return;
+        }
+        const exactPoint = `${lat},${lng}`;
+        document.getElementById('resCoordinates').innerText = `${lat},${lng}`;
+        // Destination is the saved user's exact GPS point. Google Maps uses the searcher's
+        // current device location as the starting point when origin is omitted.
+        document.getElementById('googleMapsLink').href =
+          `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(exactPoint)}`;
+        resultCard.classList.add('active');
+        document.getElementById('googleMapsLink').setAttribute('aria-label', `रास्ता दिखाएँ: ${data.full_name || 'यूज़र'} की सेव की हुई लोकेशन तक`);
+        showStatus('सर्च सफल रहा। प्रोफाइल और सेव की गई लोकेशन मिल गई है।');
+      } catch (error) { alert("सर्च नहीं हो पाया: " + (error.message || "Supabase सेटिंग जाँचें।")); }
+    }
+
+    async function toggleVisibility(isVisible) {
+      const visibilityState = document.getElementById('visibilityState');
+      if (visibilityState) visibilityState.textContent = isVisible ? 'सर्च में दिखाई देगी' : 'सर्च से छुपी रहेगी';
+      if (!supabaseClient || !enteredPhone || !enteredUid) { document.getElementById('visibilityToggle').checked = false; alert("पहले PIN से लॉगिन करें।"); return; }
+      try {
+        const { data, error } = await supabaseClient.rpc('mapoo_set_visibility', { p_account_id: enteredUid, p_is_visible: isVisible });
+        if (error) throw error;
+        if (data === false) { document.getElementById('visibilityToggle').checked = false; alert("पहले अपनी प्रोफाइल और GPS लोकेशन सेव करें।"); return; }
+        localStorage.setItem('mapoo_visibility_user_changed', 'yes');
+        showStatus(isVisible ? "आपकी प्रोफाइल सर्च में दिखाई देगी।" : "आपकी प्रोफाइल सर्च से छुपा दी गई है।");
+      } catch (error) {
+        document.getElementById('visibilityToggle').checked = !isVisible;
+        if (visibilityState) visibilityState.textContent = !isVisible ? 'सर्च में दिखाई देगी' : 'सर्च से छुपी रहेगी';
+        alert("सेटिंग अपडेट नहीं हुई: " + error.message);
+      }
+    }
+
+    function showStatus(text) {
+      const statusBox = document.getElementById('locationStatus');
+      document.getElementById('statusText').innerText = text;
+      statusBox.style.display = 'flex';
+      setTimeout(() => { statusBox.style.display = 'none'; }, 4000);
+    }
+
+    async function initializeBannerAds() {
+      const plugin = window.Capacitor?.Plugins?.AdMob || window.Capacitor?.Plugins?.GoogleAdMob;
+      if (!plugin) { console.warn('AdMob native plugin unavailable; bottom test banner skipped.'); return; }
+      try {
+        // Most Capacitor AdMob plugins support only one banner view at a time.
+        // Prefer the bottom banner; the top slot remains ready for a second native banner view
+        // only if the installed plugin explicitly supports multiple banner instances.
+        if (typeof plugin.showBanner === 'function') {
+          await plugin.showBanner({ adUnitId: ADMOB_TEST_BANNER_ID, position: 'BOTTOM', margin: 0 });
+        } else if (typeof plugin.showBannerAd === 'function') {
+          await plugin.showBannerAd({ adId: ADMOB_TEST_BANNER_ID, position: 'BOTTOM' });
+        } else {
+          console.warn('AdMob plugin found, but its banner API is not supported by this HTML bridge.');
+        }
+      } catch (error) {
+        console.warn('AdMob test banner:', error);
+      }
+    }
+
+    async function deleteProfile() {
+      if (!supabaseClient || !enteredPhone || !enteredUid) { alert("पहले PIN से लॉगिन करें।"); return; }
+      if (!confirm("क्या आप अपनी प्रोफाइल और अकाउंट हमेशा के लिए मिटाना चाहते हैं?")) return;
+      try {
+        const { error } = await supabaseClient.rpc('mapoo_delete_own_account', { p_account_id: enteredUid });
+        if (error) throw error;
+        localStorage.removeItem('mapoo_saved_phone');
+        localStorage.removeItem('mapoo_account_id');
+        localStorage.removeItem('mapoo_account_created');
+        localStorage.removeItem('mapoo_profile_completed');
+        localStorage.removeItem('mapoo_visibility_user_changed');
+        enteredPhone = ''; enteredUid = '';
+        document.getElementById('mainAppContainer').style.display = 'none';
+        document.getElementById('consentScreen').style.display = 'flex';
+        localStorage.removeItem('mapooPrivacyConsentV1');
+        document.getElementById('firstTimeGate').style.display = 'none';
+        document.getElementById('profileForm').reset();
+        document.getElementById('settingsMenu').classList.remove('open');
+        document.getElementById('visibilityToggle').checked = false;
+        showStatus("आपका प्रोफाइल डेटा मिटा दिया गया।");
+      } catch (error) { alert("डेटा मिटाया नहीं जा सका: " + error.message); }
+    }
+  </script>
+</body>
+</html>
